@@ -1,0 +1,84 @@
+{
+  "name": "Demo: kitchen blocking",
+  "fps": 24,
+  "durationInFrames": 96,
+  "cameras": [
+    { "id": "wide", "name": "Wide master", "position": [6.5, 3.2, 7.5], "target": [0, 0.9, 0], "fov": 40 },
+    { "id": "close", "name": "Reverse over the counter", "position": [-1.0, 1.45, -2.2], "target": [0.3, 1.1, 0.5], "fov": 38 }
+  ],
+  "objects": [
+    { "id": "floor", "type": "primitive", "shape": { "kind": "plane", "size": [8, 8] }, "color": "floor" },
+    {
+      "id": "back-wall", "type": "primitive", "color": "wall",
+      "shape": { "kind": "box", "size": [8, 2.8, 0.15] },
+      "transform": { "position": [0, 0, -4] }
+    },
+    {
+      "id": "counter", "type": "group",
+      "transform": { "position": [-0.5, 0, -0.5], "rotation": [0, 15, 0] }
+    },
+    {
+      "id": "counter-base", "parent": "counter", "type": "primitive", "color": "dark",
+      "shape": { "kind": "box", "size": [2.4, 0.86, 0.7] }
+    },
+    {
+      "id": "counter-top", "parent": "counter", "type": "primitive", "color": "light",
+      "shape": { "kind": "box", "size": [2.5, 0.04, 0.75] },
+      "transform": { "position": [0, 0.86, 0] }
+    },
+    {
+      "id": "kettle", "parent": "counter", "type": "primitive", "color": "red",
+      "shape": { "kind": "cylinder", "radiusTop": 0.07, "radiusBottom": 0.1, "height": 0.22, "segments": 8 },
+      "transform": { "position": [0.6, 0.9, 0.05] }
+    },
+    {
+      "id": "pillar", "type": "primitive", "color": "grey",
+      "shape": { "kind": "cylinder", "radiusTop": 0.2, "radiusBottom": 0.2, "height": 2.8, "segments": 8 },
+      "transform": { "position": [2.6, 0, -2.4] }
+    },
+    {
+      "id": "ramp", "type": "primitive", "color": "grey",
+      "shape": { "kind": "wedge", "size": [1.2, 0.4, 1.6] },
+      "transform": { "position": [-2.8, 0, 2], "rotation": [0, 90, 0] }
+    },
+    {
+      "id": "actor-a", "name": "Stand-in A (1.8 m)", "type": "primitive", "color": "blue",
+      "shape": { "kind": "capsule", "radius": 0.22, "height": 1.8, "segments": 8 },
+      "transform": { "position": [2.5, 0, 1.5] },
+      "notes": "Placeholder until the rigged mannequin lands in phase 4"
+    },
+    {
+      "id": "actor-a-facing", "parent": "actor-a", "type": "primitive", "color": "blue",
+      "shape": { "kind": "cone", "radius": 0.08, "height": 0.2, "segments": 6 },
+      "pivot": "center",
+      "transform": { "position": [0, 1.6, 0.25], "rotation": [90, 0, 0] }
+    }
+  ],
+  "tracks": [
+    {
+      "target": "actor-a", "property": "position",
+      "keys": [
+        { "frame": 0, "value": [2.5, 0, 1.5] },
+        { "frame": 48, "value": [0.4, 0, 0.6] }
+      ]
+    },
+    {
+      "target": "actor-a", "property": "rotation",
+      "keys": [
+        { "frame": 0, "value": [0, -110, 0] },
+        { "frame": 40, "value": [0, -150, 0] }
+      ]
+    },
+    {
+      "target": "wide", "property": "position",
+      "keys": [
+        { "frame": 0, "value": [6.5, 3.2, 7.5], "ease": "linear" },
+        { "frame": 48, "value": [5.5, 2.8, 6.5] }
+      ]
+    }
+  ],
+  "shots": [
+    { "id": "sh010", "name": "Enters, crosses to counter", "camera": "wide", "start": 0, "end": 48 },
+    { "id": "sh020", "name": "Reaches for kettle", "camera": "close", "start": 48, "end": 96, "notes": "Hold on the kettle" }
+  ]
+}

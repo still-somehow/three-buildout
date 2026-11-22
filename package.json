@@ -9,7 +9,10 @@
     "still": "remotion still src/remotion/index.ts",
     "render": "remotion render src/remotion/index.ts",
     "smoke": "remotion still src/remotion/index.ts SmokeTest out/smoke.png --frame=30 && remotion render src/remotion/index.ts SmokeTest out/smoke.mp4",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "vitest run src/scene/scenes.test.ts",
+    "still:draft": "remotion still src/remotion/index.ts --scale=0.75"
   },
   "dependencies": {
     "@react-three/fiber": "9.8.2",
@@ -18,11 +21,14 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "remotion": "4.0.545",
-    "three": "0.187.0"
+    "three": "0.187.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "@types/react": "^19.0.0",
     "@types/three": "^0.187.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^5.1.1"
   }
 }
