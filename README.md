@@ -107,6 +107,7 @@ A `rig` object is a rigid, segmented mannequin: low-poly parts bound to joints, 
   | knee | x+ bend |
   | ankle | x+ toes down |
 - **Expanded ids:** at render time a rig becomes joint groups (`bob/elbowL`) and parts (`bob/elbowL/forearmL`). Use those ids with `npm run qa`, e.g. `npm run qa -- demo bob`.
+- **Known limitation:** feet slide during walks (pose blending is not tied to movement). Planned fix in [BACKLOG.md](BACKLOG.md).
 - **QA:** the contact sheet's wireframe panel draws the skeleton (yellow joints and bones). The ground and interpenetration checks treat each rig as one object.
 
 **New rigs** (props, creatures, a model built from a reference photo): write `src/rig/<name>.ts` exporting a `RigDef` (joints with rest offsets, parts bound to joints, a pose library) and register it in `src/rig/registry.ts`. It then works everywhere: scenes, QA, and a `Poses-<name>` sheet.
