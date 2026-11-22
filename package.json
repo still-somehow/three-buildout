@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "validate": "vitest run src/scene/scenes.test.ts",
-    "still:draft": "remotion still src/remotion/index.ts --scale=0.75"
+    "still:draft": "remotion still src/remotion/index.ts --scale=0.75",
+    "qa": "tsx scripts/qa.ts"
   },
   "dependencies": {
     "@react-three/fiber": "9.8.2",
@@ -26,8 +27,11 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19.0.0",
     "@types/three": "^0.187.0",
+    "pngjs": "^7.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.0",
     "vitest": "^5.1.1"
   }

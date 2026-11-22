@@ -2,23 +2,39 @@
  * The ONE scene renderer. Lives inside any R3F canvas (Remotion's ThreeCanvas
  * or the editor's Canvas). Deterministic: output depends only on props.
  */
-import { useLayoutEffect, useMemo } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ResolvedScene } from "./animation";
-import { buildGeometry, resolveColor, shapeHeight } from "./primitives";
+import { pivotOffsetY } from "./build";
+import { buildGeometry, resolveColor } from "./primitives";
 import type { Camera, Light, SceneObject, Shape } from "./schema";
 
 const DEG = Math.PI / 180;
 const toRad = (v: readonly [number, number, number]) => [v[0] * DEG, v[1] * DEG, v[2] * DEG] as const;
 
+/** QA display modes. All off = normal greybox render. */
+export type RenderOptions = {
+  /** Wireframe instead of shaded surfaces. */
+  wireframe?: boolean;
+  /** Paint back faces magenta: visible magenta = flipped normals or holes. */
+  backfaces?: boolean;
+  /** Small XYZ axes at every object's origin (pivot). */
+  axes?: boolean;
+  /** Override scene.settings.grid. */
+  grid?: boolean;
+};
+
+const OptionsContext = createContext<RenderOptions>({});
+
 export type SceneContentProps = {
   scene: ResolvedScene;
+  options?: RenderOptions;
   /** Called with each object's root Object3D (editor uses it for selection). */
   onObjectRef?: (id: string, obj: THREE.Object3D | null) => void;
 };
 
-export const SceneContent: React.FC<SceneContentProps> = ({ scene, onObjectRef }) => {
+export const SceneContent: React.FC<SceneContentProps> = ({ scene, options = {}, onObjectRef }) => {
   const children = useMemo(() => {
     const map = new Map<string | undefined, SceneObject[]>();
     for (const o of scene.objects) {
@@ -29,10 +45,11 @@ export const SceneContent: React.FC<SceneContentProps> = ({ scene, onObjectRef }
     return map;
   }, [scene.objects]);
 
-  const { shadows, edges, grid } = scene.settings;
+  const { shadows, edges } = scene.settings;
+  const grid = options.grid ?? scene.settings.grid;
 
   return (
-    <>
+    <OptionsContext.Provider value={options}>
       <color attach="background" args={[scene.settings.background]} />
       {scene.lights.map((l, i) => (
         <SceneLight key={i} light={l} shadows={shadows} />
@@ -41,7 +58,7 @@ export const SceneContent: React.FC<SceneContentProps> = ({ scene, onObjectRef }
       {(children.get(undefined) ?? []).map((o) => (
         <ObjectNode key={o.id} object={o} childMap={children} edges={edges} shadows={shadows} onObjectRef={onObjectRef} />
       ))}
-    </>
+    </OptionsContext.Provider>
   );
 };
 
@@ -55,6 +72,7 @@ type NodeProps = {
 
 const ObjectNode: React.FC<NodeProps> = ({ object, childMap, edges, shadows, onObjectRef }) => {
   const { position, rotation, scale } = object.transform;
+  const { axes } = useContext(OptionsContext);
   return (
     <group
       name={object.id}
@@ -65,6 +83,7 @@ const ObjectNode: React.FC<NodeProps> = ({ object, childMap, edges, shadows, onO
       scale={scale}
       visible={object.visible}
     >
+      {axes && <axesHelper args={[0.15]} />}
       {object.type === "primitive" && (
         <Primitive shape={object.shape} color={object.color} pivot={object.pivot} edges={edges} shadows={shadows} />
       )}
@@ -86,24 +105,32 @@ const Primitive: React.FC<{
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const geometry = useMemo(() => buildGeometry(shape), [shapeKey]);
   const edgeGeometry = useMemo(() => (edges ? new THREE.EdgesGeometry(geometry, 25) : null), [geometry, edges]);
-  const h = shapeHeight(shape);
-  const offsetY = pivot === "bottom" ? h / 2 : pivot === "top" ? -h / 2 : 0;
+  const { wireframe, backfaces } = useContext(OptionsContext);
+  const isPlane = shape.kind === "plane";
+  const showBackfaces = !!backfaces && !isPlane && !wireframe;
 
   return (
-    <group position={[0, offsetY, 0]}>
+    <group position={[0, pivotOffsetY(shape, pivot), 0]}>
       <mesh geometry={geometry} castShadow={shadows} receiveShadow={shadows}>
         <meshStandardMaterial
+          // Remount when the backface mode toggles so the shader recompiles.
+          key={showBackfaces ? "bf" : "std"}
           color={resolveColor(color)}
+          wireframe={wireframe}
           flatShading
           roughness={0.9}
           metalness={0}
-          side={shape.kind === "plane" ? THREE.DoubleSide : THREE.FrontSide}
+          side={isPlane || showBackfaces ? THREE.DoubleSide : THREE.FrontSide}
+          onBeforeCompile={showBackfaces ? paintBackfaces : undefined}
+          customProgramCacheKey={showBackfaces ? () => "backfaces" : undefined}
+          // Pushes faces back a hair so outlines draw cleanly on top. In QA mode the
+          // slope-scaled term is dropped: on grazing faces it can exceed the back-face bias.
           polygonOffset
-          polygonOffsetFactor={1}
-          polygonOffsetUnits={1}
+          polygonOffsetFactor={showBackfaces ? 0 : 1}
+          polygonOffsetUnits={showBackfaces ? 2 : 1}
         />
       </mesh>
-      {edgeGeometry && (
+      {edgeGeometry && !wireframe && (
         <lineSegments geometry={edgeGeometry}>
           <lineBasicMaterial color="#1e1f22" transparent opacity={0.55} />
         </lineSegments>
@@ -111,6 +138,23 @@ const Primitive: React.FC<{
     </group>
   );
 };
+
+/**
+ * QA shader patch: any back-facing fragment that wins the depth test is painted
+ * magenta. On a closed, correctly wound mesh that never happens, so visible
+ * magenta means flipped normals or a hole. Back faces are also pushed slightly
+ * deeper so they can't tie with front faces where the two meet at a silhouette;
+ * that can't hide a real hole (nothing covers it) or a flipped face (the inside
+ * behind it is back-facing too).
+ */
+function paintBackfaces(shader: { fragmentShader: string }) {
+  shader.fragmentShader = shader.fragmentShader.replace(
+    "#include <dithering_fragment>",
+    `#include <dithering_fragment>
+  if (!gl_FrontFacing) gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+  gl_FragDepth = gl_FrontFacing ? gl_FragCoord.z : min(1.0, gl_FragCoord.z + 0.002);`,
+  );
+}
 
 const SceneLight: React.FC<{ light: Light; shadows: boolean }> = ({ light, shadows }) => {
   switch (light.type) {
