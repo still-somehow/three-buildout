@@ -1,0 +1,28 @@
+{
+  "name": "three-buildout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Greybox / previs studio: three.js scenes rendered and exported with Remotion, CPU-only.",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/remotion/index.ts",
+    "still": "remotion still src/remotion/index.ts",
+    "render": "remotion render src/remotion/index.ts",
+    "smoke": "remotion still src/remotion/index.ts SmokeTest out/smoke.png --frame=30 && remotion render src/remotion/index.ts SmokeTest out/smoke.mp4",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/fiber": "9.8.2",
+    "@remotion/cli": "4.0.545",
+    "@remotion/three": "4.0.545",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.545",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/three": "^0.187.0",
+    "typescript": "^5.6.0"
+  }
+}

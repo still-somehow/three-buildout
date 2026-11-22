@@ -1,0 +1,11 @@
+{
+  "name": "three-buildout",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+  "hostRequirements": { "cpus": 4, "memory": "8gb" },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends libnss3 libdbus-1-3 libatk1.0-0 libgbm-dev libasound2 libxrandr2 libxkbcommon-dev libxfixes3 libxcomposite1 libxdamage1 libatk-bridge2.0-0 libpango-1.0-0 libcairo2 libcups2 && npm ci && npx remotion browser ensure",
+  "forwardPorts": [3000, 5173],
+  "portsAttributes": {
+    "3000": { "label": "Remotion Studio" },
+    "5173": { "label": "Greybox Editor" }
+  }
+}
