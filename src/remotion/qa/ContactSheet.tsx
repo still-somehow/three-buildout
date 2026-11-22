@@ -53,7 +53,7 @@ export const ContactSheet: React.FC<QAProps> = (props) => {
             </>
           )}
           <div style={{ color: "#888", marginTop: 6, fontSize: 13 }}>
-            orange = 1.8 m figure · magenta = back faces · yellow = bounds
+            orange = 1.8 m figure · magenta = back faces · yellow box = bounds · yellow dots = joints
           </div>
         </div>
       </div>
@@ -65,8 +65,8 @@ export const ContactSheet: React.FC<QAProps> = (props) => {
         <ViewPanel
           {...panel}
           view="persp"
-          label="WIREFRAME · BOUNDS · PIVOTS"
-          options={{ wireframe: true, axes: true }}
+          label="WIREFRAME · BOUNDS · PIVOTS · SKELETON"
+          options={{ wireframe: true, axes: true, skeleton: true }}
           showBounds
           showFigure={false}
         />

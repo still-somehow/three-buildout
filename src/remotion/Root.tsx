@@ -2,7 +2,9 @@ import { AbsoluteFill, Composition, Still } from "remotion";
 import { compId, loadScenes } from "../scene/loadScenes";
 import { SceneComposition } from "./SceneComposition";
 import { ContactSheet, SHEET_HEIGHT, SHEET_WIDTH } from "./qa/ContactSheet";
+import { POSES_WIDTH, posesSheetHeight, RigPoses } from "./qa/RigPoses";
 import { Turntable } from "./qa/Turntable";
+import { RIGS } from "../rig/registry";
 import { SmokeTest } from "./SmokeTest";
 
 const ErrorCard: React.FC<{ message: string }> = ({ message }) => (
@@ -17,6 +19,8 @@ const ErrorCard: React.FC<{ message: string }> = ({ message }) => (
  *   <slug>-<shotId>  one composition per shot (export unit / storyboard panel)
  *   QA-<slug>        contact sheet still (props: objectId, frame, reference)
  *   Turntable-<slug> 360° orbit (props: objectId, frame)
+ * And for each rig in src/rig/registry.ts:
+ *   Poses-<rig>      the rig's whole pose library on one sheet
  */
 export const RemotionRoot: React.FC = () => (
   <>
@@ -74,6 +78,16 @@ export const RemotionRoot: React.FC = () => (
         />,
       ];
     })}
+    {Object.keys(RIGS).map((rig) => (
+      <Still
+        key={`poses/${rig}`}
+        id={compId("Poses", rig)}
+        component={RigPoses}
+        width={POSES_WIDTH}
+        height={posesSheetHeight(rig)}
+        defaultProps={{ rig, color: "blue" }}
+      />
+    ))}
     <Composition id="SmokeTest" component={SmokeTest} durationInFrames={60} fps={30} width={1280} height={720} />
   </>
 );

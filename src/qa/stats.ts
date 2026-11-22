@@ -47,6 +47,27 @@ function triCount(g: THREE.BufferGeometry) {
   return Math.round((g.index ? g.index.count : g.attributes.position.count) / 3);
 }
 
+/**
+ * Overlap depth of mesh `a` into mesh `b`, measured in b's local frame: a's
+ * local box corners are carried into b's space and boxed. 0 = separate.
+ */
+function localOverlap(a: THREE.Mesh, b: THREE.Mesh): number {
+  a.geometry.computeBoundingBox();
+  b.geometry.computeBoundingBox();
+  const ab = a.geometry.boundingBox!;
+  const toB = new THREE.Matrix4().copy(b.matrixWorld).invert().multiply(a.matrixWorld);
+  const boxInB = new THREE.Box3();
+  for (const x of [ab.min.x, ab.max.x])
+    for (const y of [ab.min.y, ab.max.y])
+      for (const z of [ab.min.z, ab.max.z]) boxInB.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(toB));
+  const inter = boxInB.intersect(b.geometry.boundingBox!.clone());
+  if (inter.isEmpty()) return 0;
+  // Express the depth in metres (b's local axes may be scaled).
+  const scale = new THREE.Vector3().setFromMatrixScale(b.matrixWorld);
+  const d = inter.getSize(new THREE.Vector3()).multiply(scale);
+  return Math.min(Math.abs(d.x), Math.abs(d.y), Math.abs(d.z));
+}
+
 export function computeStats(scene: Pick<Scene, "objects">): SceneStats {
   const built = buildObject3D(scene);
   const issues: Issue[] = [];
@@ -116,23 +137,32 @@ export function computeStats(scene: Pick<Scene, "objects">): SceneStats {
     }
   }
 
-  // Possible interpenetration between separate top-level objects (AABB test, so
-  // rotated objects can give false positives).
+  // Possible interpenetration between separate top-level objects. Each pair of
+  // parts is tested in both parts' own (rotated) frames and the smaller overlap
+  // kept, which is much tighter than world-aligned boxes. Reported once per
+  // pair of top-level objects.
+  const pairs = new Map<string, { a: string; b: string; depth: number; parts: number }>();
   for (let i = 0; i < ids.length; i++) {
     for (let j = i + 1; j < ids.length; j++) {
       const [a, b] = [ids[i], ids[j]];
-      if (rootOf(a) === rootOf(b)) continue;
-      const inter = boxes.get(a)!.clone().intersect(boxes.get(b)!);
-      if (inter.isEmpty()) continue;
-      const d = inter.getSize(new THREE.Vector3());
-      if (d.x > EPS && d.y > EPS && d.z > EPS)
-        issues.push({
-          severity: "info",
-          objectId: a,
-          message: `bounds overlap "${b}" by ${round(Math.min(d.x, d.y, d.z))} m (check for interpenetration)`,
-        });
+      const [ra, rb] = [rootOf(a), rootOf(b)];
+      if (ra === rb) continue;
+      if (boxes.get(a)!.clone().intersect(boxes.get(b)!).isEmpty()) continue; // cheap reject
+      const depth = Math.min(localOverlap(built.meshes.get(a)!, built.meshes.get(b)!), localOverlap(built.meshes.get(b)!, built.meshes.get(a)!));
+      if (depth <= EPS) continue;
+      const key = ra < rb ? `${ra}|${rb}` : `${rb}|${ra}`;
+      const p = pairs.get(key) ?? { a: ra < rb ? ra : rb, b: ra < rb ? rb : ra, depth: 0, parts: 0 };
+      p.depth = Math.max(p.depth, depth);
+      p.parts++;
+      pairs.set(key, p);
     }
   }
+  for (const p of pairs.values())
+    issues.push({
+      severity: "info",
+      objectId: p.a,
+      message: `may interpenetrate "${p.b}" by up to ${round(p.depth)} m (${p.parts} part pair${p.parts > 1 ? "s" : ""})`,
+    });
 
   built.dispose();
   return {

@@ -5,6 +5,7 @@
  * integers at the scene's fps. Objects form a hierarchy via `parent` ids.
  */
 import { z } from "zod";
+import { RIGS } from "../rig/registry";
 
 export const Vec3 = z.tuple([z.number(), z.number(), z.number()]);
 export type Vec3 = z.infer<typeof Vec3>;
@@ -73,7 +74,19 @@ const ObjectBase = z.object({
     scale: [1, 1, 1],
   }),
   notes: z.string().optional(),
+  /** Set by the rig expander on generated joint groups (not for hand-written scenes). */
+  rigJoint: z.string().optional(),
+  /** Set by the rig expander on generated body parts. */
+  rigPart: z.boolean().optional(),
 });
+
+export const PoseKey = z.object({
+  frame: z.number().int().min(0),
+  pose: z.string(),
+  /** Easing used from this key to the next one. */
+  ease: z.enum(["linear", "easeIn", "easeOut", "easeInOut", "step"]).default("easeInOut"),
+});
+export type PoseKey = z.infer<typeof PoseKey>;
 
 export const SceneObject = z.discriminatedUnion("type", [
   ObjectBase.extend({
@@ -84,6 +97,23 @@ export const SceneObject = z.discriminatedUnion("type", [
   }),
   /** Empty transform node for grouping/parenting. */
   ObjectBase.extend({ type: z.literal("group") }),
+  /**
+   * A posable rigid rig (see src/rig). Expands at render time into joint groups
+   * and body-part primitives with ids "<id>/<joint>" and "<id>/<joint>/<part>".
+   */
+  ObjectBase.extend({
+    type: z.literal("rig"),
+    rig: z.string().default("humanoid"),
+    color: Color,
+    /** Resize uniformly to this height in metres (default: the rig's own height). */
+    height: z.number().positive().optional(),
+    /** Static pose from the rig's pose library. */
+    pose: z.string().default("stand"),
+    /** Animated poses: blends between library poses over time (overrides `pose`). */
+    poses: z.array(PoseKey).default([]),
+    /** Per-joint rotation overrides in degrees, applied on top of the pose. */
+    joints: z.record(z.string(), Vec3).default({}),
+  }),
 ]);
 export type SceneObject = z.infer<typeof SceneObject>;
 
@@ -139,7 +169,11 @@ export const Keyframe = z.object({
 });
 export type Keyframe = z.infer<typeof Keyframe>;
 
-export const TrackProperty = z.enum(["position", "rotation", "scale", "target", "fov"]);
+/** Transform/camera properties, or "joint:<name>" for a rig joint's rotation. */
+export const TrackProperty = z.union([
+  z.enum(["position", "rotation", "scale", "target", "fov"]),
+  z.string().regex(/^joint:[A-Za-z0-9_]+$/, 'use "joint:<jointName>"'),
+]);
 export type TrackProperty = z.infer<typeof TrackProperty>;
 
 export const Track = z.object({
@@ -213,6 +247,25 @@ export const SceneSchema = z
     });
 
     const byId = new Map(scene.objects.map((o) => [o.id, o]));
+
+    scene.objects.forEach((o, i) => {
+      if (o.type !== "rig") return;
+      const def = RIGS[o.rig];
+      if (!def) {
+        issue(["objects", i, "rig"], `unknown rig "${o.rig}" (available: ${Object.keys(RIGS).join(", ")})`);
+        return;
+      }
+      const poseNames = Object.keys(def.poses).join(", ");
+      if (!def.poses[o.pose]) issue(["objects", i, "pose"], `unknown pose "${o.pose}" (available: ${poseNames})`);
+      o.poses.forEach((k, j) => {
+        if (!def.poses[k.pose]) issue(["objects", i, "poses", j, "pose"], `unknown pose "${k.pose}" (available: ${poseNames})`);
+        if (j > 0 && k.frame <= o.poses[j - 1].frame)
+          issue(["objects", i, "poses", j, "frame"], "pose frames must be strictly increasing");
+      });
+      const jointNames = new Set(def.joints.map((jt) => jt.name));
+      for (const name of Object.keys(o.joints))
+        if (!jointNames.has(name)) issue(["objects", i, "joints", name], `unknown joint "${name}" on rig "${o.rig}"`);
+    });
     scene.objects.forEach((o, i) => {
       if (o.parent === undefined) return;
       if (!byId.has(o.parent)) {
@@ -240,6 +293,13 @@ export const SceneSchema = z
         issue(["tracks", i, "property"], `cameras animate position/target/fov, not ${t.property}`);
       if (!isCam && (t.property === "target" || t.property === "fov"))
         issue(["tracks", i, "property"], `objects cannot animate ${t.property}`);
+      if (t.property.startsWith("joint:")) {
+        const o = byId.get(t.target);
+        const joint = t.property.slice("joint:".length);
+        if (o?.type !== "rig") issue(["tracks", i, "property"], "joint tracks need a rig target");
+        else if (RIGS[o.rig] && !RIGS[o.rig].joints.some((jt) => jt.name === joint))
+          issue(["tracks", i, "property"], `unknown joint "${joint}" on rig "${o.rig}"`);
+      }
       const scalar = t.property === "fov";
       t.keys.forEach((k, j) => {
         if (scalar !== (typeof k.value === "number"))

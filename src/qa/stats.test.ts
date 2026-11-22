@@ -51,9 +51,26 @@ describe("computeStats", () => {
 
   it("reports overlap between separate objects but not parent/child", () => {
     const s = computeStats(scene([box("a", [0, 0, 0]), box("b", [0.5, 0, 0]), box("child", [0.2, 0, 0], { parent: "a" })]));
-    const overlaps = s.issues.filter((i) => i.message.includes("overlap"));
-    expect(overlaps.length).toBe(2); // a–b and child–b, never a–child
-    expect(overlaps.every((i) => i.message.includes('"b"') || i.objectId === "b")).toBe(true);
+    const overlaps = s.issues.filter((i) => i.message.includes("interpenetrate"));
+    // One report for the a/b pair (covering a–b and child–b); a–child is never reported.
+    expect(overlaps.length).toBe(1);
+    expect(overlaps[0].objectId).toBe("a");
+    expect(overlaps[0].message).toContain('"b"');
+    expect(overlaps[0].message).toContain("2 part pairs");
+  });
+});
+
+describe("rotated overlap test", () => {
+  it("does not flag a rotated box whose world AABB merely overlaps a neighbour", () => {
+    // A 45°-rotated 1 m box spans ±0.707 m in world X and Z. A box centred at
+    // (1, 1) spans 0.5–1.5 m, so the world AABBs overlap by 0.2 m on both axes,
+    // but the diamond's edge (|x|+|z| = 0.707) never reaches the corner (0.5, 0.5).
+    const rot = { ...box("rot", [0, 0, 0]), transform: { position: [0, 0, 0], rotation: [0, 45, 0] } };
+    const s = computeStats(scene([rot, box("near", [1, 0, 1])]));
+    expect(s.issues.filter((i) => i.message.includes("interpenetrate"))).toEqual([]);
+    // Sanity: moved in along X it really does penetrate, and is reported.
+    const t = computeStats(scene([rot, box("near", [1.1, 0, 0])]));
+    expect(t.issues.filter((i) => i.message.includes("interpenetrate")).length).toBe(1);
   });
 });
 

@@ -14,6 +14,7 @@ import { resolveScene } from "../src/scene/animation";
 import { parseScene } from "../src/scene/schema";
 import { isolateSubtree } from "../src/qa/isolate";
 import { computeStats } from "../src/qa/stats";
+import { compId } from "../src/scene/loadScenes";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const { values, positionals } = parseArgs({
@@ -82,7 +83,7 @@ const remotion = (args: string[]) => {
 };
 const scale = values.full ? [] : ["--scale=0.75"];
 const png = join(outDir, `${name}.png`);
-remotion(["still", "src/remotion/index.ts", `QA-${slug}`, png, ...scale]);
+remotion(["still", "src/remotion/index.ts", compId("QA", slug), png, ...scale]);
 console.log(`\n  contact sheet → ${relative(ROOT, png)}`);
 
 // Back faces render pure magenta. A handful of pixels is antialiasing noise at
@@ -99,7 +100,7 @@ if (magenta > MAGENTA_LIMIT) {
 writeFileSync(join(outDir, `${name}.stats.json`), JSON.stringify({ scene: slug, objectId, frame, ...stats, magentaPixels: magenta }, null, 2));
 if (values.turntable) {
   const mp4 = join(outDir, `${name}-turntable.mp4`);
-  remotion(["render", "src/remotion/index.ts", `Turntable-${slug}`, mp4]);
+  remotion(["render", "src/remotion/index.ts", compId("Turntable", slug), mp4]);
   console.log(`  turntable     → ${relative(ROOT, mp4)}`);
 }
 console.log(`  stats         → ${relative(ROOT, join(outDir, `${name}.stats.json`))}\n`);

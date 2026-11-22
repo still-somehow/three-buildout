@@ -70,11 +70,46 @@ Conventions: **metres, Y-up, rotations in degrees**, integer frames. Primitives 
 ```
 
 - **Shapes:** `box`, `cylinder`, `cone`, `sphere`, `capsule`, `wedge`, `plane`
-- **Object types:** `primitive`, `group` (empty node for parenting)
+- **Object types:** `primitive`, `group` (empty node for parenting), `rig` (posable mannequin; see below)
 - **Palette colours:** `grey light dark floor wall red orange yellow green teal blue purple`, or any hex value
-- **Track properties:** objects animate `position`/`rotation`/`scale`; cameras animate `position`/`target`/`fov`
+- **Track properties:** objects animate `position`/`rotation`/`scale`; cameras animate `position`/`target`/`fov`; rigs also animate `joint:<name>` (a joint's rotation)
 - **Eases:** `linear easeIn easeOut easeInOut step`. A key's ease applies from that key to the next one.
 - **Settings:** `background`, `grid`, `edges` (outlines), `shadows` (off by default; slow on CPU)
+
+## Rigs
+
+A `rig` object is a rigid, segmented mannequin: low-poly parts bound to joints, with no skinning. The built-in `humanoid` is 1.8 m tall, faces **+Z** (the small cone on the head is its nose), and has its **left side tinted darker**.
+
+```jsonc
+// Static pose, with a couple of joints tweaked on top
+{ "id": "bob", "type": "rig", "rig": "humanoid", "color": "red", "pose": "sit",
+  "joints": { "head": [0, 25, 0] }, "transform": { "position": [-2, 0, 1], "rotation": [0, 40, 0] } }
+
+// Animated: blends between library poses over time (combine with a position track to move)
+{ "id": "amy", "type": "rig", "color": "blue", "height": 1.65,
+  "poses": [{ "frame": 0, "pose": "walk-a" }, { "frame": 12, "pose": "walk-b" }, { "frame": 24, "pose": "walk-a" },
+            { "frame": 36, "pose": "stand" }, { "frame": 48, "pose": "reach" }] }
+```
+
+- **Poses:** `stand rest t-pose a-pose walk-a walk-b sit crouch point reach wave arms-crossed look-back`. Run `npm run still -- Poses-humanoid out/poses.png` to see them all on one sheet.
+- **`height`** resizes the whole rig uniformly (e.g. `1.2` for a child).
+- **`joints`** overrides individual joint rotations (degrees, local XYZ) on top of the pose. A `joint:<name>` track animates one joint.
+- **Joints:** `hips spine chest neck head`, plus `shoulder elbow wrist hip knee ankle` with `L`/`R` suffixes.
+- **Rotation cheat-sheet:**
+
+  | Joint | Effect |
+  |---|---|
+  | spine, chest | x+ lean forward, y twist, z side-bend |
+  | neck, head | x+ nod down, y+ look to own left |
+  | shoulder | x− raise forward, z+ (L) / z− (R) raise sideways, y rotates the arm about its own length |
+  | elbow | x− bend |
+  | hip | x− leg forward |
+  | knee | x+ bend |
+  | ankle | x+ toes down |
+- **Expanded ids:** at render time a rig becomes joint groups (`bob/elbowL`) and parts (`bob/elbowL/forearmL`). Use those ids with `npm run qa`, e.g. `npm run qa -- demo bob`.
+- **QA:** the contact sheet's wireframe panel draws the skeleton (yellow joints and bones). The ground and interpenetration checks treat each rig as one object.
+
+**New rigs** (props, creatures, a model built from a reference photo): write `src/rig/<name>.ts` exporting a `RigDef` (joints with rest offsets, parts bound to joints, a pose library) and register it in `src/rig/registry.ts`. It then works everywhere: scenes, QA, and a `Poses-<name>` sheet.
 
 ## Running outside Codespaces
 

@@ -19,8 +19,10 @@ export type RenderOptions = {
   wireframe?: boolean;
   /** Paint back faces magenta: visible magenta = flipped normals or holes. */
   backfaces?: boolean;
-  /** Small XYZ axes at every object's origin (pivot). */
+  /** Small XYZ axes at every object's origin (pivot). Skips rig body parts. */
   axes?: boolean;
+  /** Rig skeletons drawn on top: joint dots and bones. */
+  skeleton?: boolean;
   /** Override scene.settings.grid. */
   grid?: boolean;
 };
@@ -72,7 +74,8 @@ type NodeProps = {
 
 const ObjectNode: React.FC<NodeProps> = ({ object, childMap, edges, shadows, onObjectRef }) => {
   const { position, rotation, scale } = object.transform;
-  const { axes } = useContext(OptionsContext);
+  const { axes, skeleton } = useContext(OptionsContext);
+  const kids = childMap.get(object.id) ?? [];
   return (
     <group
       name={object.id}
@@ -83,11 +86,14 @@ const ObjectNode: React.FC<NodeProps> = ({ object, childMap, edges, shadows, onO
       scale={scale}
       visible={object.visible}
     >
-      {axes && <axesHelper args={[0.15]} />}
+      {axes && !object.rigPart && <axesHelper args={[object.rigJoint ? 0.08 : 0.15]} />}
+      {skeleton && object.rigJoint && (
+        <JointMarker childOffsets={kids.filter((c) => c.rigJoint).map((c) => c.transform.position)} />
+      )}
       {object.type === "primitive" && (
         <Primitive shape={object.shape} color={object.color} pivot={object.pivot} edges={edges} shadows={shadows} />
       )}
-      {(childMap.get(object.id) ?? []).map((c) => (
+      {kids.map((c) => (
         <ObjectNode key={c.id} object={c} childMap={childMap} edges={edges} shadows={shadows} onObjectRef={onObjectRef} />
       ))}
     </group>
@@ -136,6 +142,29 @@ const Primitive: React.FC<{
         </lineSegments>
       )}
     </group>
+  );
+};
+
+/** Joint dot + bones to child joints, drawn over everything. */
+const JointMarker: React.FC<{ childOffsets: [number, number, number][] }> = ({ childOffsets }) => {
+  const key = JSON.stringify(childOffsets);
+  const bones = useMemo(() => {
+    const pts = childOffsets.flatMap((p) => [new THREE.Vector3(0, 0, 0), new THREE.Vector3(...p)]);
+    return pts.length ? new THREE.BufferGeometry().setFromPoints(pts) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return (
+    <>
+      <mesh renderOrder={1000}>
+        <sphereGeometry args={[0.022, 8, 6]} />
+        <meshBasicMaterial color="#ffe14d" depthTest={false} transparent />
+      </mesh>
+      {bones && (
+        <lineSegments geometry={bones} renderOrder={999}>
+          <lineBasicMaterial color="#ffe14d" depthTest={false} transparent />
+        </lineSegments>
+      )}
+    </>
   );
 };
 
