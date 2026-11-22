@@ -8,6 +8,7 @@ three.js scenes rendered, previewed and exported with [Remotion](https://www.rem
 
 | Command | What it does |
 |---|---|
+| `npm run editor` | Interactive 3D editor on port 5173 (see below) |
 | `npm run studio` | Remotion Studio on port 3000: browse scenes/shots, scrub the timeline, render from the UI |
 | `npm run still -- <comp> out/x.png --frame=N` | Render one frame to PNG |
 | `npm run still:draft -- <comp> out/x.png --frame=N` | Same at 75% size (faster) |
@@ -15,6 +16,24 @@ three.js scenes rendered, previewed and exported with [Remotion](https://www.rem
 | `npm run qa -- <scene> [object]` | Visual QA contact sheet + stats (see below) |
 | `npm run validate` | Check every `scenes/*.scene.json` against the schema |
 | `npm test` | Unit tests |
+| `npm run test:editor` | Drives the editor in headless Chromium and checks it end to end |
+
+## Editor
+
+```bash
+npm run editor
+```
+
+In a Codespace, open forwarded port **5173** from the Ports tab. The editor reads and writes `scenes/*.scene.json` directly, using the same renderer as Remotion, so what you see is what renders.
+
+- **Select:** click an object in the viewport or the outliner. On a mannequin, the first click selects the rig and a second click selects the joint under the cursor (or use the joint picker in the inspector).
+- **Transform:** **W** move / **E** rotate / **R** scale gizmos, or type values in the inspector. Joints only rotate (in local axes), and cameras only move.
+- **Animate:** scrub the timeline (**←/→**, **Shift** for ±10, **Space** to play). **K** keys the selection at the current frame. Once a property is animated (◇/◆ in the inspector), any edit to it auto-keys at the current frame. Mannequins also have pose keys (pick a library pose per frame).
+- **Cameras:** select one, then **Look through** (or use the View menu) to see the shot framing letterboxed to the render size. **Set from current view** copies the free orbit view into the camera.
+- **Shots:** with nothing selected, the inspector shows scene settings and the shot list (camera, frame range, notes). Shots appear as bars on the timeline.
+- **Preview:** a Remotion player showing exactly what renders, with shot cuts.
+- **Saving:** **Ctrl+S**. Files are validated before writing, so an invalid scene (e.g. a shot past the end) shows errors and is not saved. Undo/redo: **Ctrl+Z / Ctrl+Shift+Z**. **Ctrl+D** duplicates and **Del** deletes.
+- **External edits:** if the scene file changes on disk (e.g. Claude edits it), the editor reloads it. If you have unsaved changes, it asks first.
 
 ## Visual QA
 

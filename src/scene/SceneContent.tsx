@@ -21,13 +21,16 @@ export type RenderOptions = {
   backfaces?: boolean;
   /** Small XYZ axes at every object's origin (pivot). Skips rig body parts. */
   axes?: boolean;
-  /** Rig skeletons drawn on top: joint dots and bones. */
-  skeleton?: boolean;
+  /** Rig skeletons drawn on top (joint dots and bones): all rigs, or only the rig with this id. */
+  skeleton?: boolean | string;
   /** Override scene.settings.grid. */
   grid?: boolean;
 };
 
 const OptionsContext = createContext<RenderOptions>({});
+
+/** For helpers that must never be picked by clicks (outlines, grid, overlays). */
+const noRaycast = () => null;
 
 export type SceneContentProps = {
   scene: ResolvedScene;
@@ -56,7 +59,7 @@ export const SceneContent: React.FC<SceneContentProps> = ({ scene, options = {},
       {scene.lights.map((l, i) => (
         <SceneLight key={i} light={l} shadows={shadows} />
       ))}
-      {grid && <gridHelper args={[20, 20, "#8a8a8a", "#4c4c4c"]} position={[0, 0.001, 0]} />}
+      {grid && <gridHelper args={[20, 20, "#8a8a8a", "#4c4c4c"]} position={[0, 0.001, 0]} raycast={noRaycast} />}
       {(children.get(undefined) ?? []).map((o) => (
         <ObjectNode key={o.id} object={o} childMap={children} edges={edges} shadows={shadows} onObjectRef={onObjectRef} />
       ))}
@@ -86,8 +89,8 @@ const ObjectNode: React.FC<NodeProps> = ({ object, childMap, edges, shadows, onO
       scale={scale}
       visible={object.visible}
     >
-      {axes && !object.rigPart && <axesHelper args={[object.rigJoint ? 0.08 : 0.15]} />}
-      {skeleton && object.rigJoint && (
+      {axes && !object.rigPart && <axesHelper args={[object.rigJoint ? 0.08 : 0.15]} raycast={noRaycast} />}
+      {object.rigJoint && (skeleton === true || (typeof skeleton === "string" && object.id.startsWith(skeleton + "/"))) && (
         <JointMarker childOffsets={kids.filter((c) => c.rigJoint).map((c) => c.transform.position)} />
       )}
       {object.type === "primitive" && (
@@ -137,7 +140,7 @@ const Primitive: React.FC<{
         />
       </mesh>
       {edgeGeometry && !wireframe && (
-        <lineSegments geometry={edgeGeometry}>
+        <lineSegments geometry={edgeGeometry} raycast={noRaycast}>
           <lineBasicMaterial color="#1e1f22" transparent opacity={0.55} />
         </lineSegments>
       )}
@@ -155,12 +158,12 @@ const JointMarker: React.FC<{ childOffsets: [number, number, number][] }> = ({ c
   }, [key]);
   return (
     <>
-      <mesh renderOrder={1000}>
+      <mesh renderOrder={1000} raycast={noRaycast}>
         <sphereGeometry args={[0.022, 8, 6]} />
         <meshBasicMaterial color="#ffe14d" depthTest={false} transparent />
       </mesh>
       {bones && (
-        <lineSegments geometry={bones} renderOrder={999}>
+        <lineSegments geometry={bones} renderOrder={999} raycast={noRaycast}>
           <lineBasicMaterial color="#ffe14d" depthTest={false} transparent />
         </lineSegments>
       )}
